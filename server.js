@@ -1,37 +1,48 @@
-'use strict';
 
-var express = require('express');
-var mongo = require('mongodb');
-var mongoose = require('mongoose');
+const express = require('express')
+const path = require('path')
+const helmet = require('helmet')
+const morgan = require('morgan')
+const mongoDB = require('mongodb')
+const routes = require('./routes/index.js')
+const app = express()
 
-var cors = require('cors');
+app.use(helmet())
+app.disable('x-powered-by')
+app.use(morgan('dev'))
 
-var app = express();
+// Statics and front-page:
+app.use(express.static('public'))
+app.get('/', function (request, response) {
+  response.sendFile(path.join(__dirname + '/views/index.html'))
+})
 
-// Basic Configuration 
-var port = process.env.PORT || 3000;
+app.use(express.json())
 
-/** this project needs a db !! **/ 
-// mongoose.connect(process.env.MONGOLAB_URI);
+// mongoDB CONNECTION:
+const user = encodeURIComponent(process.env.mongoUSER)
+const pass = encodeURIComponent(process.env.mongoPASS)
+const config = process.env.mongoCONFIG
+const url = `mongodb://${user}:${pass}@${config}`
 
-app.use(cors());
+mongoDB.MongoClient.connect(url, (err, database) => {
+  if (err)
+    return console.log(`Unable to connect to the mongoDB server. Error: ${err}`)
 
-/** this project needs to parse POST bodies **/
-// you should mount the body-parser here
-
-app.use('/public', express.static(process.cwd() + '/public'));
-
-app.get('/', function(req, res){
-  res.sendFile(process.cwd() + '/views/index.html');
-});
-
+  const DB = database.db('xs-url')
   
-// your first API endpoint... 
-app.get("/api/hello", function (req, res) {
-  res.json({greeting: 'hello API'});
-});
+  // Use the MongoDB present connection across the Router:
+  app.use((req, res, next) => {
+    res.locals.db = DB
+    next()
+  })
+  
+  // API ROUTING:
+  app.use('./', routes)
+})
 
 
-app.listen(port, function () {
-  console.log('Node.js listening ...');
-});
+// Listen for Glitch.com PORT:
+var listener = app.listen((process.env.PORT || 3000), function () {
+  console.log('The server is listening on port ' + listener.address().port)
+})
