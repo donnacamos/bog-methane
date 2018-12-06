@@ -38,7 +38,7 @@ mongoDB.MongoClient.connect(url, (err, database) => {
   })
   
   // API ROUTING:
-  app.use('./', routes)
+  app.use('/', routes)
 })
 
 
